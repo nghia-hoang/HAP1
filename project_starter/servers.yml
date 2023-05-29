@@ -9,6 +9,7 @@ Parameters:
     S3Policies:
         Description: "The AWS Managed Policy for the EC2 Instance Role"
         Type: CommaDelimitedList
+        Default: "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
     InstanceType:
         Type: String
         Description: "EC2 instance type. For the second project required 2vCPU and 4GiB of Memory, so t3.medium is the best fits for this spec."
@@ -17,11 +18,12 @@ Parameters:
             - t3.medium
             - t2.medium
     KeyPair:
-        Type: AWS::SSM::Parameter::Value<AWS::EC2::KeyPair::KeyName>
-        Description: "AWS key pair in us-east-1, stored in SSM Parameter Store"
-    ImageId:
-        Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-        Description: "AWS AMI in us-east-1, stored in SSM Parameter Store"
+        Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+        Type: AWS::EC2::KeyPair::KeyName
+    UbuntuImageId:
+        Description: 'Ubuntu 22.0 ImageId'
+        Type: String
+        Default: 'ami-0f8e81a3da6e2510a'
 Resources:
   LBSecGroup:
     Type: AWS::EC2::SecurityGroup
@@ -49,8 +51,8 @@ Resources:
           !Sub "${EnvironmentName}-VPCID"
       SecurityGroupIngress:
       - IpProtocol: tcp
-        FromPort: 8080
-        ToPort: 8080
+        FromPort: 80
+        ToPort: 80
         CidrIp: 0.0.0.0/0
       - IpProtocol: tcp
         FromPort: 22
@@ -73,7 +75,7 @@ Resources:
           cd /var/www/html
           echo "Udacity Demo Web Server Up and Running!" > index.html          
       # ToDo: AMI ID of Ubuntu Linux machine. Too get one, try creating a VM from the web console. 
-      ImageId: !Ref ImageId
+      ImageId: !Ref UbuntuImageId
       # ToDo: Change the key-pair name, as applicable to you. 
       KeyName: !Ref KeyPair
       SecurityGroups:
@@ -133,7 +135,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 8
       HealthyThresholdCount: 2
-      Port: 8080
+      Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 5
       VpcId: 
@@ -145,13 +147,22 @@ Resources:
             AssumeRolePolicyDocument:
                 Version: "2012-10-17"
                 Statement:
-                    -   Effect: "Allow"
-                        Principal:
-                            Service:
-                                - "ec2.amazonaws.com"
-                        Action:
-                            - "sts:AssumeRole"
+                    - Effect: "Allow"
+                      Principal:
+                        Service: "ec2.amazonaws.com"
+                      Action: "sts:AssumeRole"
             Description: "The IAM role of second project that allow S3 read only and SSM Managed Instance Core"
+            Path: /
+            Policies:
+              - PolicyName: S3ReadOnlyPolicy
+                PolicyDocument:
+                  Version: '2012-10-17'
+                  Statement:
+                    - Effect: Allow
+                      Action:
+                        - s3:Get*
+                        - s3:List*
+                      Resource: "*"
             ManagedPolicyArns: !Ref S3Policies
             Tags:
                 -   Key: "Name"
@@ -170,52 +181,9 @@ Resources:
               -   Ref: "WebAppRole"
 
 Outputs:
-    WebServerLoadBalancerURL:
-        Description: "Load balancer URL "
-        Value:
-            Fn::Sub:
-                - "http://${load_balancer_url}"
-                -   load_balancer_url:
-                        Fn::GetAtt: "WebServerLoadBalancer.DNSName"
-        Export:
-            Name:
-                Fn::Join:
-                    - ""
-                    -   - !Ref EnvironmentName
-                        - "-load_balancer_url"
-                        - Ref: "AWS::Region"
-
-    WebServerInstanceProfile:
-        Description: "The Instance profile that allow S3 read only and SSM Managed Instance Core"
-        Value:
-            Ref: "WebServerInstanceProfile"
-        Export:
-            Name:
-                Fn::Join:
-                    - ""
-                    -   - !Ref EnvironmentName
-                        - "-WebServerInstanceProfile"
-
-    WebServerSecurityGroupId:
-        Description: "The web server security group id"
-        Value:
-            Ref: "WebServerSecurityGroup"
-        Export:
-            Name:
-                Fn::Join:
-                    - ""
-                    -   - !Ref EnvironmentName
-                        - "-web-server-sg-"
-                        - Ref: "AWS::Region"
-
-    LoadBalancerSecurityGroupId:
-        Description: "The load balancer security group id"
-        Value:
-            Ref: "LoadBalancerSecurityGroup"
-        Export:
-            Name:
-                Fn::Join:
-                    - ""
-                    -   - !Ref EnvironmentName
-                        - "-load-balancer-sg-"
-                        - Ref: "AWS::Region"
+  WebServerLoadBalancerURL:
+    Description: "Load balancer URL"
+    Value:
+      Fn::Sub: "http://${WebAppLB.DNSName}"
+    Export:
+      Name: !Sub "${EnvironmentName}-load-balancer-url"
