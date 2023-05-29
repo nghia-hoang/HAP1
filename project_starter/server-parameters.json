@@ -1,0 +1,22 @@
+[
+	{
+		"ParameterKey": "EnvironmentName",
+		"ParameterValue": "UdacityProject"
+	},
+	{
+		"ParameterKey": "InstanceType",
+		"ParameterValue": "t3.medium"
+	},
+	{
+		"ParameterKey": "KeyPair",
+		"ParameterValue": "nghiahv1-servers-key-pair"
+	},
+	{
+		"ParameterKey": "UbuntuImageId",
+		"ParameterValue": "ami-0f8e81a3da6e2510a"
+	},
+	{
+		"ParameterKey": "S3Policies",
+		"ParameterValue": "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+	}
+]
